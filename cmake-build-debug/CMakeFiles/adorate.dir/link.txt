@@ -1,0 +1,1 @@
+/Library/Developer/CommandLineTools/usr/bin/c++  -g -Wall -g -DDEBUG -Wl,-search_paths_first -Wl,-headerpad_max_install_names  CMakeFiles/adorate.dir/adorate-42.cpp.o  -o adorate 

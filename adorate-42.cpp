@@ -2,7 +2,7 @@
 #include <fstream>
 #include <unordered_map>
 #include <vector>
-//#include "../lib/blimit.hpp"//TODO ogarnij jak to ma być porozdzielane na foldery
+#include "blimit.hpp"
 
 typedef std::pair <unsigned int, unsigned int> edge;//<node_id, weight>
 typedef std::vector <edge>::iterator edgesVecIt;
@@ -52,6 +52,10 @@ public:
         verticesMap[id1].AddEdgeN(id2, weight);
         verticesMap[id2].AddEdgeN(id1, weight);
     }
+
+    void PrintGraph() {
+
+    }
 };
 
 void ReadInput(std::string &inputPath, Graph &G) {
@@ -71,6 +75,7 @@ void ReadInput(std::string &inputPath, Graph &G) {
 
 int main(int argc, char* argv[]) {
     if (argc != 4) {
+        std::cerr << "usage: "<<argv[0]<<" thread-count inputfile b-limit"<< std::endl;
         return 1;
     }
 
@@ -78,13 +83,13 @@ int main(int argc, char* argv[]) {
     std::string inputPath;
     Graph G;
 
-    numThreads = atoi(argv[1]);
+    numThreads = std::stoi(argv[1]);
     inputPath = argv[2];
-    limitB = atoi(argv[3]);
+    limitB = std::stoi(argv[3]);
 
     ReadInput(inputPath, G);
 
-    for (int o = 0; o <= limitB; o++) {
+    for (unsigned int method = 0; method <= limitB; method++) {
 
     }
 }

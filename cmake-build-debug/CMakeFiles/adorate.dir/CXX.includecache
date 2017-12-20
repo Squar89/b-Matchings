@@ -1,0 +1,22 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/Users/squar/Desktop/Studia/b-Matchings/adorate-42.cpp
+iostream
+-
+fstream
+-
+unordered_map
+-
+vector
+-
+blimit.hpp
+/Users/squar/Desktop/Studia/b-Matchings/blimit.hpp
+
+/Users/squar/Desktop/Studia/b-Matchings/blimit.hpp
+

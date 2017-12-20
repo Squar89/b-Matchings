@@ -1,0 +1,7 @@
+/Users/squar/Desktop/Studia/b-Matchings/cmake-build-debug/CMakeFiles/install/local.dir
+/Users/squar/Desktop/Studia/b-Matchings/cmake-build-debug/CMakeFiles/install/strip.dir
+/Users/squar/Desktop/Studia/b-Matchings/cmake-build-debug/CMakeFiles/install.dir
+/Users/squar/Desktop/Studia/b-Matchings/cmake-build-debug/CMakeFiles/list_install_components.dir
+/Users/squar/Desktop/Studia/b-Matchings/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/Users/squar/Desktop/Studia/b-Matchings/cmake-build-debug/CMakeFiles/edit_cache.dir
+/Users/squar/Desktop/Studia/b-Matchings/cmake-build-debug/CMakeFiles/adorate.dir
