@@ -3,6 +3,7 @@
 #include <fstream>
 #include <unordered_map>
 #include <vector>
+#include <set>
 
 typedef std::pair <unsigned int, unsigned int> edge_t;//<node_id, weight>
 typedef std::vector <edge_t>::iterator edgesVecIt_t;
@@ -17,27 +18,35 @@ private:
     unsigned int id;
     unsigned int b;
     unsigned long long p;
+public:
+    unsigned int matchedCount;
+    unsigned int replacedCount;
     unsigned long long sortedItPosition;
     std::vector <edge_t> nodeEdges;
     std::vector <unsigned int> seenNodes;
     std::vector <edge_t> matchedEdges;
-public:
     std::mutex alterMatched;
     edgesVecIt_t current, sortedEnd, end;
 
-    Node() : id(0), b(0), p(0), sortedItPosition(0) {}
+    Node() : id(0), b(0), p(0), matchedCount(0), replacedCount(0), sortedItPosition(0) {}
 
     Node(Node&& other) noexcept {
         id = other.id;
         b = other.b;
         p = other.p;
+        matchedCount = other.matchedCount;
+        replacedCount = other.replacedCount;
         sortedItPosition = other.sortedItPosition;
         nodeEdges = std::move(other.nodeEdges);
         matchedEdges = std::move(other.matchedEdges);
         seenNodes = std::move(other.seenNodes);
     }
 
-    explicit Node(unsigned int x) : id(x), b(0), p(0), sortedItPosition(0) {}
+    explicit Node(unsigned int x) : id(x), b(0), p(0), matchedCount(0), replacedCount(0), sortedItPosition(0) {}
+
+    bool operator==(const Node &other) const {
+        return id == other.id;
+    }
 
     void AddEdgeN(unsigned int neighbourId, unsigned int weight) {
         nodeEdges.emplace_back(neighbourId, weight);
@@ -68,7 +77,7 @@ public:
         }
     }
 
-    void SortEdges() {//TODO wywołuj tą funkcję w algorytmie, nie w przygotowaniach do niego
+    void SortEdges() {
         if (sortedItPosition + p <= nodeEdges.size()) {
             std::partial_sort(sortedEnd, sortedEnd + p, end, Greater);
             sortedItPosition += p;
@@ -78,12 +87,21 @@ public:
             sortedItPosition = nodeEdges.size();
         }
     }
+
+    unsigned int GetId() {
+        return id;
+    }
+
+    unsigned int GetB() {
+        return b;
+    }
 };
 
 class Graph {
 public:
     std::unordered_map <unsigned int, Node> verticesMap;
-    std::vector <Node*> que;
+    std::vector <Node*> que, tempQue;
+    std::mutex replace;
 
     Graph() = default;
 
@@ -100,7 +118,10 @@ public:
     }
 
     void SetupAlgorithm(unsigned int method) {
-        for (auto &vertex : verticesMap) {
+        que.clear();
+        tempQue.clear();
+
+        for (auto& vertex : verticesMap) {
             vertex.second.ClearStructures();
             vertex.second.UpdateBValue(method);
             vertex.second.SetIterators();
@@ -108,7 +129,51 @@ public:
         }
     }
 
-    unsigned int SuitorAlgorithm() {//TODO
+    unsigned int SuitorAlgorithm() {
+        while (!que.empty()) {
+            for (auto vertex : que) {
+                while (vertex->matchedCount < vertex->GetB() && vertex->current != vertex->end) {
+                    if (vertex->current == vertex->sortedEnd) {
+                        vertex->SortEdges();
+                    }
+
+                    auto &candidate = verticesMap.at(vertex->current->first);//TODO dodaj seenNodes żeby ogarniać multiset?
+                    if (candidate.matchedEdges.size() < candidate.GetB() - 1
+                        || Greater(*(vertex->current), candidate.matchedEdges.at(candidate.GetB() - 1))) {
+                        std::lock_guard<std::mutex> matchedLock(candidate.alterMatched);
+
+                        if (candidate.matchedEdges.size() < candidate.GetB() - 1) {
+                            vertex->matchedCount++;
+                            candidate.matchedEdges.emplace_back(vertex->GetId(), vertex->current->second);
+                        } else if (Greater(*(vertex->current), candidate.matchedEdges.at(candidate.GetB() - 1))) {
+                            vertex->matchedCount++;
+
+                            std::lock_guard<std::mutex> replaceLock(replace);
+                            auto &replacedNode = verticesMap.at(candidate.matchedEdges[candidate.GetB() - 1].first);
+                            if (replacedNode.replacedCount == 0) {
+                                tempQue.push_back(&replacedNode);//TODO stwórz oddzielną kolejke dla każdego wątku
+                            }
+                            replacedNode.replacedCount++;
+
+                            candidate.matchedEdges[candidate.GetB() - 1] = std::make_pair(vertex->GetId(),
+                                                                                          vertex->current->second);
+                        }
+                    }
+
+                    (vertex->current)++;
+                }
+            }
+
+            que.clear();
+
+            for (auto vertex : tempQue) {
+                vertex->matchedCount -= vertex->replacedCount;
+                vertex->replacedCount = 0;
+                que.push_back(vertex);
+            }
+            tempQue.clear();
+        }
+
         return 0;
     }
 
@@ -137,7 +202,6 @@ void ReadInput(std::string &inputPath, Graph &G) {
         }
     }
     inputFile.close();
-
 }
 
 int main(int argc, char* argv[]) {
