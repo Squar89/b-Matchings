@@ -138,14 +138,15 @@ public:
                     }
 
                     auto &candidate = verticesMap.at(vertex->current->first);//TODO dodaj seenNodes żeby ogarniać multiset?
-                    if (candidate.matchedEdges.size() < candidate.GetB() - 1
+                    if (candidate.matchedEdges.size() < candidate.GetB()
                         || Greater(*(vertex->current), candidate.matchedEdges.at(candidate.GetB() - 1))) {
                         std::lock_guard<std::mutex> matchedLock(candidate.alterMatched);
 
-                        if (candidate.matchedEdges.size() < candidate.GetB() - 1) {
+                        if (candidate.matchedEdges.size() < candidate.GetB()) {
                             vertex->matchedCount++;
                             candidate.matchedEdges.emplace_back(vertex->GetId(), vertex->current->second);
-                        } else if (Greater(*(vertex->current), candidate.matchedEdges.at(candidate.GetB() - 1))) {
+                        }
+                        else if (Greater(*(vertex->current), candidate.matchedEdges.at(candidate.GetB() - 1))) {
                             vertex->matchedCount++;
 
                             std::lock_guard<std::mutex> replaceLock(replace);
@@ -155,8 +156,7 @@ public:
                             }
                             replacedNode.replacedCount++;
 
-                            candidate.matchedEdges[candidate.GetB() - 1] = std::make_pair(vertex->GetId(),
-                                                                                          vertex->current->second);
+                            candidate.matchedEdges[candidate.GetB() - 1] = std::make_pair(vertex->GetId(), vertex->current->second);
                         }
                     }
 
