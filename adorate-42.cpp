@@ -23,7 +23,7 @@ public:
     unsigned int replacedCount;
     unsigned long long sortedItPosition;
     std::vector <edge_t> nodeEdges;
-    std::vector <unsigned int> seenNodes;
+    std::vector <unsigned int> seenNodes;//TODO wykorzystaj lub usuń
     std::vector <edge_t> matchedEdges;
     std::mutex alterMatched;
     edgesVecIt_t current, sortedEnd, end;
@@ -65,6 +65,8 @@ public:
     }
 
     void ClearStructures() {
+        matchedCount = 0;
+        replacedCount = 0;
         seenNodes.clear();
         matchedEdges.clear();
     }
@@ -86,6 +88,16 @@ public:
             std::partial_sort(sortedEnd, end, end, Greater);
             sortedItPosition = nodeEdges.size();
         }
+    }
+
+    unsigned int GetSum() {
+        unsigned int result = 0;
+
+        for (auto edge : matchedEdges) {
+            result += edge.second;
+        }
+
+        return result;
     }
 
     unsigned int GetId() {
@@ -130,6 +142,8 @@ public:
     }
 
     unsigned int SuitorAlgorithm() {
+        unsigned int result = 0;
+
         while (!que.empty()) {
             for (auto vertex : que) {
                 while (vertex->matchedCount < vertex->GetB() && vertex->current != vertex->end) {
@@ -174,7 +188,11 @@ public:
             tempQue.clear();
         }
 
-        return 0;
+        for (auto& vertex : verticesMap) {
+            result += vertex.second.GetSum();
+        }
+
+        return result / 2;
     }
 
     void PrintGraph() {
