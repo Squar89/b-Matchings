@@ -19,11 +19,11 @@ class Node {
 private:
     unsigned int id;
     unsigned int b;
-    unsigned long long p;
+    unsigned int p;
 public:
     unsigned int matchedCount;
     unsigned int replacedCount;
-    unsigned long long sortedItPosition;
+    unsigned int sortedItPosition;
     std::vector <edge_t> nodeEdges;
     std::vector <unsigned int> seenNodes;//TODO wykorzystaj lub usuń
     std::vector <edge_t> matchedEdges;
@@ -55,7 +55,7 @@ public:
     }
 
     void printNode() {
-        std::cout << "Node id: " << id << std::endl;
+        std::cout << "Node id: " << id << " Sorted: " << sortedItPosition << std::endl;
         for (auto &edge : nodeEdges) {
             std::cout << "    -> " << edge.first << " weight: " << edge.second << std::endl;
         }
@@ -79,6 +79,8 @@ public:
         if (sortedItPosition == 0) {
             sortedEnd = nodeEdges.begin();
         }
+
+        std::sort(nodeEdges.begin(), nodeEdges.end(), Greater);
     }
 
     void SortEdges() {
@@ -148,9 +150,11 @@ public:
         while (!que.empty()) {
             for (auto vertex : que) {
                 while (vertex->matchedCount < vertex->GetB() && vertex->current != vertex->end) {
+                    /*
                     if (vertex->current == vertex->sortedEnd) {
                         vertex->SortEdges();
                     }
+                    */
 
                     auto &candidate = verticesMap.at(vertex->current->first);//TODO dodaj seenNodes żeby ogarniać multiset?
                     edge_t proposedEdge = std::make_pair(vertex->GetId(), vertex->current->second);
@@ -180,7 +184,6 @@ public:
                     (vertex->current)++;
                 }
             }
-
             que.clear();
 
             for (auto vertex : tempQue) {
@@ -242,6 +245,7 @@ int main(int argc, char* argv[]) {
 
     ReadInput(inputPath, G);
     printf("Done reading input\n");
+    //G.PrintGraph();
 
     for (unsigned int method = 0; method <= limitB; method++) {
         G.SetupAlgorithm(method);
@@ -252,4 +256,6 @@ int main(int argc, char* argv[]) {
         // this is just to show the blimit with which the program is linked
         // std::cerr << "bvalue node 44: " << bvalue(method, 44) << std::endl;
     }
+
+    //G.PrintGraph();
 }
