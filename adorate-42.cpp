@@ -175,7 +175,7 @@ public:
                         auto &replacedNode = verticesMap.at((candidate.matchedEdges.rbegin())->first);
                         if (replacedNode.replacedCount == 0) {
                             std::lock_guard<std::mutex> queueLock(queMutex);
-                            tempQue.push_back(&replacedNode);//TODO stwórz oddzielną kolejke dla każdego wątku
+                            tempQue.push_back(&replacedNode);
                         }
                         replacedNode.replacedCount++;
 
@@ -197,10 +197,17 @@ public:
             unsigned int startPosition = 0;
             unsigned int portionSize = que.size()/numberOfThreads;
 
+            if (portionSize == 0) {
+                portionSize = 1;
+            }
+
             for (unsigned int i = 0; i < numberOfThreads - 1; i++) {
                 threads.push_back(std::thread{[this, startPosition, portionSize]
                                               {ProcessQueue(startPosition, startPosition + portionSize);}});
                 startPosition += portionSize;
+                if (startPosition == que.size() - 1) {
+                    break;
+                }
             }
             ProcessQueue(startPosition, que.size());
 
