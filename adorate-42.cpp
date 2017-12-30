@@ -7,6 +7,7 @@
 #include <mutex>
 #include <algorithm>
 #include <limits>
+#include <thread>
 
 typedef std::pair <unsigned int, unsigned int> edge_t;//<node_id, weight>
 typedef std::vector <edge_t>::iterator edgesVecIt_t;
@@ -32,7 +33,6 @@ public:
     unsigned int replacedCount;
     unsigned int sortedItPosition;
     std::vector <edge_t> nodeEdges;
-    //std::vector <unsigned int> seenNodes;//TODO wykorzystaj lub usuń
     std::set <edge_t, EdgesComparator> matchedEdges;
     std::mutex alterMatched;
     edgesVecIt_t current, sortedEnd, end;
@@ -48,7 +48,6 @@ public:
         sortedItPosition = other.sortedItPosition;
         nodeEdges = std::move(other.nodeEdges);
         matchedEdges = std::move(other.matchedEdges);
-        //seenNodes = std::move(other.seenNodes);
     }
 
     explicit Node(unsigned int x) : id(x), b(0), p(0), matchedCount(0), replacedCount(0), sortedItPosition(0) {}
@@ -76,7 +75,6 @@ public:
     void ClearStructures() {
         matchedCount = 0;
         replacedCount = 0;
-        //seenNodes.clear();
         matchedEdges.clear();
     }
 
@@ -122,7 +120,7 @@ class Graph {
 public:
     std::unordered_map <unsigned int, Node> verticesMap;
     std::vector <Node*> que, tempQue;
-    std::mutex replace;
+    std::mutex replace, queMutex;
 
     Graph() = default;
 
@@ -150,46 +148,68 @@ public:
         }
     }
 
-    unsigned int SuitorAlgorithm() {
-        unsigned int result = 0;
-        while (!que.empty()) {
-            for (auto vertex : que) {
-                while (vertex->matchedCount < vertex->GetB() && vertex->current != vertex->end) {
-                    if (vertex->current == vertex->sortedEnd) {
-                        vertex->SortEdges();
-                    }
+    void ProcessQueue(unsigned int begin, unsigned int end) {
+        for (int i = begin; i < end; i++) {
+            auto vertex = que[i];
 
-                    auto &candidate = verticesMap.at(vertex->current->first);//TODO dodaj seenNodes żeby ogarniać multiset?
-                    edge_t proposedEdge = std::make_pair(vertex->GetId(), vertex->current->second);
-
-                    if (candidate.GetB() > 0 && (candidate.matchedEdges.size() < candidate.GetB()
-                        || Greater(proposedEdge, *(candidate.matchedEdges.rbegin())))) {
-                        //std::lock_guard<std::mutex> matchedLock(candidate.alterMatched);
-
-                        if (candidate.matchedEdges.size() < candidate.GetB()) {
-                            vertex->matchedCount++;
-                            candidate.matchedEdges.emplace(vertex->GetId(), vertex->current->second);
-                        }
-                        else if (Greater(proposedEdge, *(candidate.matchedEdges.rbegin()))) {
-                            vertex->matchedCount++;
-
-                            //std::lock_guard<std::mutex> replaceLock(replace);
-                            auto &replacedNode = verticesMap.at((candidate.matchedEdges.rbegin())->first);
-                            if (replacedNode.replacedCount == 0) {
-                                tempQue.push_back(&replacedNode);//TODO stwórz oddzielną kolejke dla każdego wątku
-                            }
-                            replacedNode.replacedCount++;
-
-                            candidate.matchedEdges.erase(--candidate.matchedEdges.end());
-                            candidate.matchedEdges.emplace(vertex->GetId(), vertex->current->second);
-                        }
-                    }
-
-                    (vertex->current)++;
+            while (vertex->matchedCount < vertex->GetB() && vertex->current != vertex->end) {
+                if (vertex->current == vertex->sortedEnd) {
+                    vertex->SortEdges();
                 }
-            }
-            que.clear();
 
+                auto &candidate = verticesMap.at(vertex->current->first);
+                edge_t proposedEdge = std::make_pair(vertex->GetId(), vertex->current->second);
+
+                if (candidate.GetB() > 0 && (candidate.matchedEdges.size() < candidate.GetB()
+                                             || Greater(proposedEdge, *(candidate.matchedEdges.rbegin())))) {
+                    std::lock_guard<std::mutex> matchedLock(candidate.alterMatched);
+
+                    if (candidate.matchedEdges.size() < candidate.GetB()) {
+                        vertex->matchedCount++;
+                        candidate.matchedEdges.emplace(vertex->GetId(), vertex->current->second);
+                    }
+                    else if (Greater(proposedEdge, *(candidate.matchedEdges.rbegin()))) {
+                        vertex->matchedCount++;
+
+                        std::lock_guard<std::mutex> replaceLock(replace);
+                        auto &replacedNode = verticesMap.at((candidate.matchedEdges.rbegin())->first);
+                        if (replacedNode.replacedCount == 0) {
+                            std::lock_guard<std::mutex> queueLock(queMutex);
+                            tempQue.push_back(&replacedNode);//TODO stwórz oddzielną kolejke dla każdego wątku
+                        }
+                        replacedNode.replacedCount++;
+
+                        candidate.matchedEdges.erase(--candidate.matchedEdges.end());
+                        candidate.matchedEdges.emplace(vertex->GetId(), vertex->current->second);
+                    }
+                }
+
+                (vertex->current)++;
+            }
+        }
+    }
+
+    unsigned int SuitorAlgorithm(int numberOfThreads) {
+        unsigned int result = 0;
+        std::vector <std::thread> threads;
+
+        while (!que.empty()) {
+            unsigned int startPosition = 0;
+            unsigned int portionSize = que.size()/numberOfThreads;
+
+            for (unsigned int i = 0; i < numberOfThreads - 1; i++) {
+                threads.push_back(std::thread{[this, startPosition, portionSize]
+                                              {ProcessQueue(startPosition, startPosition + portionSize);}});
+                startPosition += portionSize;
+            }
+            ProcessQueue(startPosition, que.size());
+
+            while (!threads.empty()) {
+                threads[threads.size() - 1].join();
+                threads.pop_back();
+            }
+
+            que.clear();
             for (auto vertex : tempQue) {
                 vertex->matchedCount -= vertex->replacedCount;
                 vertex->replacedCount = 0;
@@ -254,7 +274,7 @@ int main(int argc, char* argv[]) {
     for (unsigned int method = 0; method <= limitB; method++) {
         G.SetupAlgorithm(method);
 
-        result = G.SuitorAlgorithm();
+        result = G.SuitorAlgorithm(numThreads);
 
         printf("%d\n", result);
         // this is just to show the blimit with which the program is linked
