@@ -3,6 +3,9 @@
 #include <fstream>
 #include <unordered_map>
 #include <vector>
+#include <mutex>
+#include <algorithm>
+#include <limits>
 
 typedef std::pair <unsigned int, unsigned int> edge_t;//<node_id, weight>
 typedef std::vector <edge_t>::iterator edgesVecIt_t;
