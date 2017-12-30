@@ -3,13 +3,12 @@
 #include <fstream>
 #include <unordered_map>
 #include <vector>
-#include <set>
 
 typedef std::pair <unsigned int, unsigned int> edge_t;//<node_id, weight>
 typedef std::vector <edge_t>::iterator edgesVecIt_t;
 
 //return left :>: right
-bool Greater(edge_t left, edge_t right) {
+bool Greater(const edge_t left, const edge_t right) {
     return (left.second > right.second) || (left.second == right.second && left.first > right.first);
 }
 
@@ -143,7 +142,6 @@ public:
 
     unsigned int SuitorAlgorithm() {
         unsigned int result = 0;
-
         while (!que.empty()) {
             for (auto vertex : que) {
                 while (vertex->matchedCount < vertex->GetB() && vertex->current != vertex->end) {
@@ -152,15 +150,16 @@ public:
                     }
 
                     auto &candidate = verticesMap.at(vertex->current->first);//TODO dodaj seenNodes żeby ogarniać multiset?
-                    if (candidate.matchedEdges.size() < candidate.GetB()
-                        || Greater(*(vertex->current), candidate.matchedEdges.at(candidate.GetB() - 1))) {
+                    edge_t proposedEdge = std::make_pair(vertex->GetId(), vertex->current->second);
+
+                    if (candidate.GetB() > 0 && (candidate.matchedEdges.size() < candidate.GetB()
+                        || Greater(proposedEdge, candidate.matchedEdges.at(candidate.GetB() - 1)))) {
                         std::lock_guard<std::mutex> matchedLock(candidate.alterMatched);
 
                         if (candidate.matchedEdges.size() < candidate.GetB()) {
                             vertex->matchedCount++;
                             candidate.matchedEdges.emplace_back(vertex->GetId(), vertex->current->second);
-                        }
-                        else if (Greater(*(vertex->current), candidate.matchedEdges.at(candidate.GetB() - 1))) {
+                        } else if (Greater(proposedEdge, candidate.matchedEdges.at(candidate.GetB() - 1))) {
                             vertex->matchedCount++;
 
                             std::lock_guard<std::mutex> replaceLock(replace);
@@ -170,7 +169,8 @@ public:
                             }
                             replacedNode.replacedCount++;
 
-                            candidate.matchedEdges[candidate.GetB() - 1] = std::make_pair(vertex->GetId(), vertex->current->second);
+                            candidate.matchedEdges[candidate.GetB() - 1] = std::make_pair(vertex->GetId(),
+                                                                                          vertex->current->second);
                         }
                     }
 
@@ -188,7 +188,7 @@ public:
             tempQue.clear();
         }
 
-        for (auto& vertex : verticesMap) {
+        for (auto &vertex : verticesMap) {
             result += vertex.second.GetSum();
         }
 
@@ -238,6 +238,7 @@ int main(int argc, char* argv[]) {
     limitB = std::stoi(argv[3]);
 
     ReadInput(inputPath, G);
+    printf("Done reading input\n");
 
     for (unsigned int method = 0; method <= limitB; method++) {
         G.SetupAlgorithm(method);
