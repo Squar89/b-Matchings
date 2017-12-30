@@ -28,29 +28,29 @@ private:
     unsigned int id;
     unsigned int b;
     unsigned int p;
+    bool sorted;
 public:
     unsigned int matchedCount;
     unsigned int replacedCount;
-    unsigned int sortedItPosition;
     std::vector <edge_t> nodeEdges;
     std::set <edge_t, EdgesComparator> matchedEdges;
     std::mutex alterMatched;
-    edgesVecIt_t current, sortedEnd, end;
+    edgesVecIt_t current, sortedEnd;
 
-    Node() : id(0), b(0), p(0), matchedCount(0), replacedCount(0), sortedItPosition(0) {}
+    Node() : id(0), b(0), p(0), sorted(false), matchedCount(0), replacedCount(0) {}
 
     Node(Node&& other) noexcept {
         id = other.id;
         b = other.b;
         p = other.p;
+        sorted = other.sorted;
         matchedCount = other.matchedCount;
         replacedCount = other.replacedCount;
-        sortedItPosition = other.sortedItPosition;
         nodeEdges = std::move(other.nodeEdges);
         matchedEdges = std::move(other.matchedEdges);
     }
 
-    explicit Node(unsigned int x) : id(x), b(0), p(0), matchedCount(0), replacedCount(0), sortedItPosition(0) {}
+    explicit Node(unsigned int x) : id(x), b(0), p(0), sorted(false), matchedCount(0), replacedCount(0) {}
 
     bool operator==(const Node &other) const {
         return id == other.id;
@@ -61,7 +61,7 @@ public:
     }
 
     void printNode() {
-        std::cout << "Node id: " << id << " Sorted: " << sortedItPosition << std::endl;
+        std::cout << "Node id: " << id << std::endl;
         for (auto &edge : nodeEdges) {
             std::cout << "    -> " << edge.first << " weight: " << edge.second << std::endl;
         }
@@ -80,21 +80,27 @@ public:
 
     void SetIterators() {
         current = nodeEdges.begin();
-        end = nodeEdges.end();
-        if (sortedItPosition == 0) {
+        if (!sorted) {
             sortedEnd = nodeEdges.begin();
         }
     }
 
     void SortEdges() {
-        if (sortedItPosition + p <= nodeEdges.size()) {
-            std::partial_sort(sortedEnd, sortedEnd + p, end, Greater);
-            sortedItPosition += p;
+        if (nodeEdges.empty()) {
+            return;
+        }
+
+        if (p < std::distance(sortedEnd, nodeEdges.end())) {
+            auto temp = sortedEnd;
+            std::advance(sortedEnd, p);
+            std::partial_sort(temp, sortedEnd, nodeEdges.end(), Greater);
         }
         else {
-            std::partial_sort(sortedEnd, end, end, Greater);
-            sortedItPosition = nodeEdges.size();
+            std::sort(sortedEnd, nodeEdges.end(), Greater);
+            sortedEnd = nodeEdges.end();
         }
+
+        sorted = true;
     }
 
     unsigned int GetSum() {
@@ -152,7 +158,7 @@ public:
         for (int i = begin; i < end; i++) {
             auto vertex = que[i];
 
-            while (vertex->matchedCount < vertex->GetB() && vertex->current != vertex->end) {
+            while (vertex->matchedCount < vertex->GetB() && vertex->current != vertex->nodeEdges.end()) {
                 if (vertex->current == vertex->sortedEnd) {
                     vertex->SortEdges();
                 }
@@ -160,27 +166,28 @@ public:
                 auto &candidate = verticesMap.at(vertex->current->first);
                 edge_t proposedEdge = std::make_pair(vertex->GetId(), vertex->current->second);
 
-                if (candidate.GetB() > 0 && (candidate.matchedEdges.size() < candidate.GetB()
-                                             || Greater(proposedEdge, *(candidate.matchedEdges.rbegin())))) {
+                {
                     std::lock_guard<std::mutex> matchedLock(candidate.alterMatched);
+                    if (candidate.GetB() > 0 && (candidate.matchedEdges.size() < candidate.GetB()
+                                                 || Greater(proposedEdge, *(candidate.matchedEdges.rbegin())))) {
 
-                    if (candidate.matchedEdges.size() < candidate.GetB()) {
-                        vertex->matchedCount++;
-                        candidate.matchedEdges.emplace(vertex->GetId(), vertex->current->second);
-                    }
-                    else if (Greater(proposedEdge, *(candidate.matchedEdges.rbegin()))) {
-                        vertex->matchedCount++;
+                        if (candidate.matchedEdges.size() < candidate.GetB()) {
+                            vertex->matchedCount++;
+                            candidate.matchedEdges.emplace(vertex->GetId(), vertex->current->second);
+                        } else if (Greater(proposedEdge, *(candidate.matchedEdges.rbegin()))) {
+                            vertex->matchedCount++;
 
-                        std::lock_guard<std::mutex> replaceLock(replace);
-                        auto &replacedNode = verticesMap.at((candidate.matchedEdges.rbegin())->first);
-                        if (replacedNode.replacedCount == 0) {
-                            std::lock_guard<std::mutex> queueLock(queMutex);
-                            tempQue.push_back(&replacedNode);
+                            std::lock_guard<std::mutex> replaceLock(replace);
+                            auto &replacedNode = verticesMap.at((candidate.matchedEdges.rbegin())->first);
+                            if (replacedNode.replacedCount == 0) {
+                                std::lock_guard<std::mutex> queueLock(queMutex);
+                                tempQue.push_back(&replacedNode);
+                            }
+                            replacedNode.replacedCount++;
+
+                            candidate.matchedEdges.erase(--candidate.matchedEdges.end());
+                            candidate.matchedEdges.emplace(vertex->GetId(), vertex->current->second);
                         }
-                        replacedNode.replacedCount++;
-
-                        candidate.matchedEdges.erase(--candidate.matchedEdges.end());
-                        candidate.matchedEdges.emplace(vertex->GetId(), vertex->current->second);
                     }
                 }
 
@@ -275,7 +282,7 @@ int main(int argc, char* argv[]) {
     limitB = std::stoi(argv[3]);
 
     ReadInput(inputPath, G);
-    printf("Done reading input\n");
+    printf("Done reading input\n");//TODO usuń przed oddaniem
     //G.PrintGraph();
 
     for (unsigned int method = 0; method <= limitB; method++) {
