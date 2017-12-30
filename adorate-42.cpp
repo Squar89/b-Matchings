@@ -3,6 +3,7 @@
 #include <fstream>
 #include <unordered_map>
 #include <vector>
+#include <set>
 #include <mutex>
 #include <algorithm>
 #include <limits>
@@ -15,6 +16,12 @@ bool Greater(const edge_t left, const edge_t right) {
     return (left.second > right.second) || (left.second == right.second && left.first > right.first);
 }
 
+struct EdgesComparator {
+    bool operator()(const edge_t left, const edge_t right) {
+        return Greater(left, right);
+    }
+};
+
 class Node {
 private:
     unsigned int id;
@@ -25,8 +32,8 @@ public:
     unsigned int replacedCount;
     unsigned int sortedItPosition;
     std::vector <edge_t> nodeEdges;
-    std::vector <unsigned int> seenNodes;//TODO wykorzystaj lub usuń
-    std::vector <edge_t> matchedEdges;
+    //std::vector <unsigned int> seenNodes;//TODO wykorzystaj lub usuń
+    std::set <edge_t, EdgesComparator> matchedEdges;
     std::mutex alterMatched;
     edgesVecIt_t current, sortedEnd, end;
 
@@ -41,7 +48,7 @@ public:
         sortedItPosition = other.sortedItPosition;
         nodeEdges = std::move(other.nodeEdges);
         matchedEdges = std::move(other.matchedEdges);
-        seenNodes = std::move(other.seenNodes);
+        //seenNodes = std::move(other.seenNodes);
     }
 
     explicit Node(unsigned int x) : id(x), b(0), p(0), matchedCount(0), replacedCount(0), sortedItPosition(0) {}
@@ -69,7 +76,7 @@ public:
     void ClearStructures() {
         matchedCount = 0;
         replacedCount = 0;
-        seenNodes.clear();
+        //seenNodes.clear();
         matchedEdges.clear();
     }
 
@@ -79,8 +86,6 @@ public:
         if (sortedItPosition == 0) {
             sortedEnd = nodeEdges.begin();
         }
-
-        std::sort(nodeEdges.begin(), nodeEdges.end(), Greater);
     }
 
     void SortEdges() {
@@ -150,34 +155,33 @@ public:
         while (!que.empty()) {
             for (auto vertex : que) {
                 while (vertex->matchedCount < vertex->GetB() && vertex->current != vertex->end) {
-                    /*
                     if (vertex->current == vertex->sortedEnd) {
                         vertex->SortEdges();
                     }
-                    */
 
                     auto &candidate = verticesMap.at(vertex->current->first);//TODO dodaj seenNodes żeby ogarniać multiset?
                     edge_t proposedEdge = std::make_pair(vertex->GetId(), vertex->current->second);
 
                     if (candidate.GetB() > 0 && (candidate.matchedEdges.size() < candidate.GetB()
-                        || Greater(proposedEdge, candidate.matchedEdges.at(candidate.GetB() - 1)))) {
-                        std::lock_guard<std::mutex> matchedLock(candidate.alterMatched);
+                        || Greater(proposedEdge, *(candidate.matchedEdges.rbegin())))) {
+                        //std::lock_guard<std::mutex> matchedLock(candidate.alterMatched);
 
                         if (candidate.matchedEdges.size() < candidate.GetB()) {
                             vertex->matchedCount++;
-                            candidate.matchedEdges.emplace_back(vertex->GetId(), vertex->current->second);
-                        } else if (Greater(proposedEdge, candidate.matchedEdges.at(candidate.GetB() - 1))) {
+                            candidate.matchedEdges.emplace(vertex->GetId(), vertex->current->second);
+                        }
+                        else if (Greater(proposedEdge, *(candidate.matchedEdges.rbegin()))) {
                             vertex->matchedCount++;
 
-                            std::lock_guard<std::mutex> replaceLock(replace);
-                            auto &replacedNode = verticesMap.at(candidate.matchedEdges[candidate.GetB() - 1].first);
+                            //std::lock_guard<std::mutex> replaceLock(replace);
+                            auto &replacedNode = verticesMap.at((candidate.matchedEdges.rbegin())->first);
                             if (replacedNode.replacedCount == 0) {
                                 tempQue.push_back(&replacedNode);//TODO stwórz oddzielną kolejke dla każdego wątku
                             }
                             replacedNode.replacedCount++;
 
-                            candidate.matchedEdges[candidate.GetB() - 1] = std::make_pair(vertex->GetId(),
-                                                                                          vertex->current->second);
+                            candidate.matchedEdges.erase(--candidate.matchedEdges.end());
+                            candidate.matchedEdges.emplace(vertex->GetId(), vertex->current->second);
                         }
                     }
 
