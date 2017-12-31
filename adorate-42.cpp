@@ -148,15 +148,15 @@ public:
         //unsigned int startPosition = 0;
         //unsigned int portionSize = verticesMap.size()/numberOfThreads;
 
+        que.clear();
+        tempQue.clear();
+        
         for (auto& vertex : verticesMap) {
             vertex.second.ClearStructures();
             vertex.second.UpdateBValue(method);
             vertex.second.SetIterators();
             que.push_back(&vertex.second);
         }
-
-        que.clear();
-        tempQue.clear();
     }
 
     void ProcessQueue(unsigned int begin, unsigned int end) {
