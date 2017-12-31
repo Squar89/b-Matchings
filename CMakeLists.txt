@@ -16,6 +16,6 @@ macro (add_executable _name)
     endif()
 endmacro()
 
-add_executable(adorate adorate-42.cpp blimit.hpp blimit-test.cpp)
+add_executable(adorate adorate-42.cpp blimit.hpp blimit.cpp)
 
 install(TARGETS DESTINATION .)
