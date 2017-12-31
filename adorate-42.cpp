@@ -174,7 +174,6 @@ public:
                     std::lock_guard<std::mutex> matchedLock(candidate.alterMatched);
                     if (candidate.GetB() > 0 && (candidate.matchedEdges.size() < candidate.GetB()
                                                  || Greater(proposedEdge, *(candidate.matchedEdges.rbegin())))) {
-
                         if (candidate.matchedEdges.size() < candidate.GetB()) {
                             vertex->matchedCount++;
                             candidate.matchedEdges.emplace(vertex->GetId(), vertex->current->second);
@@ -194,7 +193,6 @@ public:
                         }
                     }
                 }
-
                 (vertex->current)++;
             }
         }
@@ -295,7 +293,6 @@ int main(int argc, char* argv[]) {
     limitB = std::stoi(argv[3]);
 
     ReadInput(inputPath, G);
-    printf("Done reading input\n");//TODO usuń przed oddaniem
 
     for (unsigned int method = 0; method <= limitB; method++) {
         G.SetupAlgorithm(method);
