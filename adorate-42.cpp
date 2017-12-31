@@ -157,6 +157,8 @@ public:
     }
 
     void ProcessQueue(unsigned int begin, unsigned int end) {
+        std::vector <Node*> threadQue;
+
         for (int i = begin; i < end; i++) {
             auto vertex = que[i];
 
@@ -176,14 +178,14 @@ public:
                         if (candidate.matchedEdges.size() < candidate.GetB()) {
                             vertex->matchedCount++;
                             candidate.matchedEdges.emplace(vertex->GetId(), vertex->current->second);
-                        } else if (Greater(proposedEdge, *(candidate.matchedEdges.rbegin()))) {
+                        }
+                        else if (Greater(proposedEdge, *(candidate.matchedEdges.rbegin()))) {
                             vertex->matchedCount++;
 
                             std::lock_guard<std::mutex> replaceLock(replace);
                             auto &replacedNode = verticesMap.at((candidate.matchedEdges.rbegin())->first);
                             if (replacedNode.replacedCount == 0) {
-                                std::lock_guard<std::mutex> queueLock(queMutex);
-                                tempQue.push_back(&replacedNode);
+                                threadQue.push_back(&replacedNode);
                             }
                             replacedNode.replacedCount++;
 
@@ -194,6 +196,13 @@ public:
                 }
 
                 (vertex->current)++;
+            }
+        }
+
+        if (!threadQue.empty()) {
+            std::lock_guard<std::mutex> queueLock(queMutex);
+            for (auto i : threadQue) {
+                tempQue.push_back(i);
             }
         }
     }
@@ -226,7 +235,7 @@ public:
             }
 
             que.clear();
-            for (auto vertex : tempQue) {//TODO każdy wątek ma swoją kolejke i dopiero na koniec ją dodaje do głównej?
+            for (auto vertex : tempQue) {
                 vertex->matchedCount -= vertex->replacedCount;
                 vertex->replacedCount = 0;
                 que.push_back(vertex);
