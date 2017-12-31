@@ -142,9 +142,11 @@ public:
         verticesMap[id2].AddEdgeN(id1, weight);
     }
 
-    void SetupAlgorithm(unsigned int method) {
-        que.clear();
-        tempQue.clear();
+    //void PrepareVertices()
+
+    void SetupAlgorithm(unsigned int method, int numberOfThreads) {//TODO przerób na współbieżne
+        //unsigned int startPosition = 0;
+        //unsigned int portionSize = verticesMap.size()/numberOfThreads;
 
         for (auto& vertex : verticesMap) {
             vertex.second.ClearStructures();
@@ -152,6 +154,9 @@ public:
             vertex.second.SetIterators();
             que.push_back(&vertex.second);
         }
+
+        que.clear();
+        tempQue.clear();
     }
 
     void ProcessQueue(unsigned int begin, unsigned int end) {
@@ -224,7 +229,7 @@ public:
             }
 
             que.clear();
-            for (auto vertex : tempQue) {
+            for (auto vertex : tempQue) {//TODO każdy wątek ma swoją kolejke i dopiero na koniec ją dodaje do głównej?
                 vertex->matchedCount -= vertex->replacedCount;
                 vertex->replacedCount = 0;
                 que.push_back(vertex);
@@ -232,7 +237,7 @@ public:
             tempQue.clear();
         }
 
-        for (auto &vertex : verticesMap) {
+        for (auto &vertex : verticesMap) {//TODO współbieżne obliczanie wyniku
             result += vertex.second.GetSum();
         }
 
@@ -286,7 +291,7 @@ int main(int argc, char* argv[]) {
     //G.PrintGraph();
 
     for (unsigned int method = 0; method <= limitB; method++) {
-        G.SetupAlgorithm(method);
+        G.SetupAlgorithm(method, numThreads);
 
         result = G.SuitorAlgorithm(numThreads);
 
