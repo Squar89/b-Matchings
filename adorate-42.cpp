@@ -9,12 +9,8 @@
 #include <limits>
 #include <thread>
 
-class Node;
-class Graph;
-
 typedef std::pair <unsigned int, unsigned int> edge_t;//<node_id, weight>
 typedef std::vector <edge_t>::iterator edgesVecIt_t;
-typedef std::unordered_map <unsigned int, Node>::iterator verticesMapIt;
 
 //return left :>: right
 bool Greater(const edge_t left, const edge_t right) {
@@ -62,13 +58,6 @@ public:
 
     void AddEdgeN(unsigned int neighbourId, unsigned int weight) {
         nodeEdges.emplace_back(neighbourId, weight);
-    }
-
-    void printNode() {
-        std::cout << "Node id: " << id << std::endl;
-        for (auto &edge : nodeEdges) {
-            std::cout << "    -> " << edge.first << " weight: " << edge.second << std::endl;
-        }
     }
 
     void UpdateBValue(unsigned int method) {
@@ -124,6 +113,15 @@ public:
     unsigned int GetB() {
         return b;
     }
+
+    /*
+    void printNode() {
+        std::cout << "Node id: " << id << std::endl;
+        for (auto &edge : nodeEdges) {
+            std::cout << "    -> " << edge.first << " weight: " << edge.second << std::endl;
+        }
+    }
+    */
 };
 
 class Graph {
@@ -146,47 +144,15 @@ public:
         verticesMap[id2].AddEdgeN(id1, weight);
     }
 
-    void PrepareVertices(unsigned int method, verticesMapIt begin, verticesMapIt end) {
-        for (auto it = begin; it != end; it++) {
-            it->second.ClearStructures();
-            it->second.UpdateBValue(method);
-            it->second.SetIterators();
-            {
-                std::lock_guard<std::mutex> queueLock(queMutex);
-                que.push_back(&(it->second));
-            }
-        }
-    }
-
-    void SetupAlgorithm(unsigned int method, int numberOfThreads) {
-        verticesMapIt position = verticesMap.begin();
-        unsigned int portionSize = verticesMap.size()/numberOfThreads;
-        std::vector <std::thread> threads;
-
+    void SetupAlgorithm(unsigned int method) {
         que.clear();
         tempQue.clear();
 
-        if (portionSize > 0 && numberOfThreads > 1) {
-            for (unsigned int i = 0; i < numberOfThreads - 1; i++) {
-                if (portionSize > std::distance(position, verticesMap.end())) {
-                    break;
-                }
-
-                auto temp = position;
-                std::advance(position, portionSize);
-
-                threads.push_back(std::thread{[this, method, temp, position]
-                                              {PrepareVertices(method, temp, position);}});
-            }
-            PrepareVertices(method, position, verticesMap.end());
-
-            while (!threads.empty()) {
-                threads[threads.size() - 1].join();
-                threads.pop_back();
-            }
-        }
-        else {
-            PrepareVertices(method, verticesMap.begin(), verticesMap.end());
+        for (auto& vertex : verticesMap) {
+            vertex.second.ClearStructures();
+            vertex.second.UpdateBValue(method);
+            vertex.second.SetIterators();
+            que.push_back(&vertex.second);
         }
     }
 
@@ -268,19 +234,21 @@ public:
             tempQue.clear();
         }
 
-        for (auto &vertex : verticesMap) {//TODO współbieżne obliczanie wyniku
+        for (auto &vertex : verticesMap) {
             result += vertex.second.GetSum();
         }
 
         return result / 2;
     }
 
+    /*
     void PrintGraph() {
         std::cout << "Printing graph of " << verticesMap.size() << " nodes:\n";
         for (auto &vertex : verticesMap) {
             vertex.second.printNode();
         }
     }
+    */
 };
 
 void ReadInput(std::string &inputPath, Graph &G) {
@@ -319,10 +287,9 @@ int main(int argc, char* argv[]) {
 
     ReadInput(inputPath, G);
     printf("Done reading input\n");//TODO usuń przed oddaniem
-    //G.PrintGraph();
 
     for (unsigned int method = 0; method <= limitB; method++) {
-        G.SetupAlgorithm(method, numThreads);
+        G.SetupAlgorithm(method);
 
         result = G.SuitorAlgorithm(numThreads);
 
@@ -330,6 +297,4 @@ int main(int argc, char* argv[]) {
         // this is just to show the blimit with which the program is linked
         // std::cerr << "bvalue node 44: " << bvalue(method, 44) << std::endl;
     }
-
-    //G.PrintGraph();
 }
